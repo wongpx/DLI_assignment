@@ -1,0 +1,10 @@
+# Replace blank cells with NaN
+
+df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
+
+# Replace NaN values to "0" in selected columns
+
+df['ct_flw_http_mthd'].fillna(0, inplace=True)
+df['is_ftp_login'].fillna(0, inplace=True)
+df['ct_ftp_cmd'].fillna(0, inplace=True)
+df['attack_cat'].fillna('Normal', inplace=True)
