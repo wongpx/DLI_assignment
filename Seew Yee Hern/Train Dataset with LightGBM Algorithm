@@ -1,0 +1,24 @@
+# Train dataset with LightGBM algorithm
+
+import lightgbm as lgb
+from sklearn.metrics import classification_report
+
+lgb_model = lgb.LGBMClassifier(
+    objective='multiclass',
+    num_class=y.nunique(),       # number of unique attack classes
+    learning_rate=0.03,          # lower for better generalization
+    max_depth=6,
+    num_leaves=50,
+    min_child_samples=30,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    reg_alpha=0.2,
+    reg_lambda=0.4,
+    n_estimators=200,            # controls training time
+    class_weight='balanced',     # helps low-recall classes (optional if already SMOTEd)
+    random_state=42,
+    n_jobs=-1                    # use all CPU cores
+)
+
+lgb_model.fit(x_train, y_train)
+y_pred_lgb = lgb_model.predict(x_test)
