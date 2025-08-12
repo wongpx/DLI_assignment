@@ -1,0 +1,13 @@
+#Feature Scaling
+
+# Save column names before scaling
+feature_names = x_train.columns
+
+# Scale
+scaler = StandardScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+
+# Convert back to DataFrame for compatibility with LightGBM
+x_train = pd.DataFrame(x_train, columns=feature_names)
+x_test = pd.DataFrame(x_test, columns=feature_names)
