@@ -1,0 +1,16 @@
+# Library
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+
+# Drop Unnecessary Columns
+df.drop(['srcip', 'dstip', 'sport', 'dsport', 'Label'], axis=1, inplace=True)
+
+# Encode Categorical Columns
+categorical_cols = ['proto', 'service', 'state', 'attack_cat']
+
+le = LabelEncoder()
+for col in categorical_cols:
+    df[col] = le.fit_transform(df[col])
+
+# Split Features and Target
+x = df.drop('attack_cat', axis=1)
+y = df['attack_cat']
