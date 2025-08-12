@@ -1,0 +1,7 @@
+# Evaluate the model
+print("LightGBM Classification Report:")
+print(classification_report(y_test, y_pred_lgb))
+
+input_columns = x_train.columns.tolist()
+input_columns = [feat for feat in input_columns if feat != "service"]
+print(input_columns)
