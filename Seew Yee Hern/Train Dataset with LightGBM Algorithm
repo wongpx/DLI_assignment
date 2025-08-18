@@ -1,4 +1,4 @@
-# Train dataset with LightGBM algorithm
+#Train dataset with LightGBM algorithm
 
 import lightgbm as lgb
 from sklearn.metrics import classification_report
@@ -21,4 +21,11 @@ lgb_model = lgb.LGBMClassifier(
 )
 
 lgb_model.fit(x_train, y_train)
+
+#calculate the inference time and make prediction
+
+import time
+start = time.time()
 y_pred_lgb = lgb_model.predict(x_test)
+end = time.time()
+print("Inference time (per sample):", (end-start)/len(x_test), "seconds")
