@@ -1,0 +1,153 @@
+APP_PATH = "/content/app_ids_words_free_numeric.py"
+APP_CODE = f"""
+import json, re
+import numpy as np
+import pandas as pd
+from joblib import load as joblib_load
+import streamlit as st
+import altair as alt
+
+st.set_page_config(page_title="DLI Assignmenmt UI", page_icon="🛡️", layout="wide")
+st.title("🛡️ Predict Attack Class in UNSW-NB15 IDS Dataset Using LightGBM Algorithm")
+
+BUNDLE_PATH = "{BUNDLE_PATH}"
+STATS_JSON  = "{STATS_JSON}"
+
+bundle = joblib_load(BUNDLE_PATH)
+with open(STATS_JSON, "r") as f: stats = json.load(f)
+
+feature_names   = bundle["feature_order"]
+cat_features    = bundle["cat_features"]
+cat_choices     = bundle["cat_choices"]
+class_codes     = np.array(bundle["class_codes"])
+attack_master_10      = bundle["attack_master_10"]       # canonical 10 (Normal + 9)
+canonical_by_dirty_idx = bundle["canonical_by_dirty_idx"]# map from *dirty index* -> canonical name
+
+def strip_digits(s: str) -> str:
+    return re.sub(r"\\d+", "", s).strip()
+
+# ---- inputs ----
+st.subheader("Select values for EVERY feature")
+c1, c2, c3 = st.columns(3)
+inputs = {{}}
+for feat, col in zip(cat_features, [c1, c2, c3]):
+    key = f"in_{{feat}}"
+    words = cat_choices[feat]
+    st.session_state.setdefault(key, words[0])
+    with col:
+        inputs[feat] = st.selectbox(feat, options=words, key=key, format_func=strip_digits)
+
+left, right = st.columns(2)
+numeric_feats = [f for f in feature_names if f not in cat_features]
+half = len(numeric_feats)//2
+
+def parse_float(txt, label):
+    txt = (txt or "").strip()
+    if txt == "":
+        return float(stats.get(label, stats.get('median', 0.0))) if isinstance(stats.get(label), (int,float)) else float(stats.get(label, {{}}).get("median", 0.0))
+    try:
+        return float(txt)
+    except Exception:
+        st.error(f"'{{label}}' must be a number. You entered: {{txt}}")
+        st.stop()
+
+for feats, container in [(numeric_feats[:half], left), (numeric_feats[half:], right)]:
+    with container:
+        for feat in feats:
+            key = f"in_{{feat}}"
+            default_str = str(stats.get(feat, {{}}).get("median", 0.0))
+            st.session_state.setdefault(key, default_str)
+            st.text_input(feat, key=key)
+            inputs[feat] = parse_float(st.session_state[key], feat)
+
+# ---- Attack class list (exactly the dataset-derived canonical 10) ----
+st.subheader("Attack class")
+df_classes = pd.DataFrame({{"No.": [str(i) for i in range(1, len(attack_master_10)+1)],
+                            "Name": attack_master_10}})
+st.dataframe(
+    df_classes,
+    use_container_width=True,
+    hide_index=True,
+    column_config={{"No.": st.column_config.TextColumn("No.", width="small"),
+                   "Name": st.column_config.TextColumn("Name")}}
+)
+
+def preprocess_one(row_df, bundle):
+    for col in bundle["cat_features"]:
+        words = bundle["cat_choices"][col]
+        row_df[col] = [words.index(str(row_df[col].iloc[0]))]
+    for col in row_df.columns:
+        if col not in bundle["cat_features"]:
+            row_df[col] = pd.to_numeric(row_df[col], errors="coerce")
+    if row_df.isnull().any().any():
+        raise ValueError("Some numeric fields are invalid or missing.")
+    feat_order = bundle["feature_order"]
+    row_df = row_df.reindex(columns=feat_order)
+    Xs = bundle["scaler"].transform(row_df)
+    return pd.DataFrame(Xs, columns=feat_order)
+
+def predict_one(X, bundle):
+    proba = bundle["model"].predict_proba(X)[0]
+    top = int(np.argmax(proba))
+    return int(bundle["class_codes"][top]), proba
+
+st.subheader("Start")
+if st.button("Start Predict", type="primary"):
+    try:
+        row_df = pd.DataFrame({{k:[v] for k,v in inputs.items()}})
+        X = preprocess_one(row_df.copy(), bundle)
+        code, proba = predict_one(X, bundle)
+
+        # ---- Map model code to canonical label (via dirty index -> canonical) ----
+        # class_codes are integers (e.g., 0..13). We treat each integer as *dirty index*.
+        code_idx = int(code)
+        pred_label = canonical_by_dirty_idx[code_idx] if code_idx < len(canonical_by_dirty_idx) else str(code)
+        st.success(f"✅ Predicted Attack Type: **{{pred_label}}**")
+
+        # ---- Aggregate probabilities to the canonical 10 (default order; NO SORT) ----
+        # Build pairs (canonical_label, prob) for every model class index
+        pairs = []
+        for i in range(len(proba)):
+            dirty_idx = int(class_codes[i]) if i < len(class_codes) else i
+            label = canonical_by_dirty_idx[dirty_idx] if dirty_idx < len(canonical_by_dirty_idx) else str(dirty_idx)
+            pairs.append((label, float(round(proba[i], 6))))
+
+        tmp = pd.DataFrame(pairs, columns=["class","prob"])
+        # Sum duplicates, then reindex to the canonical order to ensure exactly those 10 rows
+        agg = tmp.groupby("class", sort=False)["prob"].sum()
+        agg = agg.reindex(attack_master_10).fillna(0.0).reset_index()
+
+        dfp = pd.DataFrame({{
+            "No.": [str(i) for i in range(1, len(agg)+1)],
+            "class": list(agg["class"]),
+            "probability": [format(p, ".6f") for p in list(agg["prob"])],
+        }})
+
+        st.write("### Probability scores")
+        st.dataframe(
+            dfp,
+            use_container_width=True,
+            hide_index=True,
+            column_config={{"No.": st.column_config.TextColumn("No.", width="small"),
+                           "class": st.column_config.TextColumn("class"),
+                           "probability": st.column_config.TextColumn("probability")}}
+        )
+
+        # ---- Bar chart (same 10 rows), highest bar in green, default order ----
+        prob_df = agg.rename(columns={{"prob":"probability"}})
+        prob_df["is_max"] = prob_df["probability"] == prob_df["probability"].max()
+
+        chart = alt.Chart(prob_df).mark_bar().encode(
+            x=alt.X("class:N", sort=None, axis=alt.Axis(labelAngle=-90)),
+            y=alt.Y("probability:Q"),
+            color=alt.condition(alt.datum.is_max, alt.value("#16a34a"), alt.value("#60a5fa")),
+            tooltip=["class", "probability"]
+        ).properties(height=320)
+
+        st.altair_chart(chart, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Prediction failed: {{e}}")
+"""
+Path(APP_PATH).write_text(APP_CODE, encoding="utf-8")
+print(f"📝 Wrote Streamlit app to {APP_PATH}")
