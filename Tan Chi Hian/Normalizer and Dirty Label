@@ -1,0 +1,17 @@
+CANONICAL_ORDER = [
+    "Normal","Fuzzers","Analysis","Backdoor","DoS",
+    "Exploits","Generic","Reconnaissance","Shellcode","Worms"
+]
+def normalize_attack_name(x: str) -> str:
+    s = str(x).strip()
+    s = re.sub(r"\s+", " ", s)
+    if s.lower() == "backdoors": s = "Backdoor"
+    if s.lower() == "dos":       s = "DoS"
+    return s
+
+#Dirty Label
+
+df_att_dirty = _read_cols(PATH_DIR, ['attack_cat'])
+df_att_dirty['attack_cat'] = df_att_dirty['attack_cat'].fillna('Normal').astype(str)
+le_dirty = LabelEncoder().fit(df_att_dirty['attack_cat'])
+dirty_classes = list(le_dirty.classes_)
