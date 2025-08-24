@@ -1,0 +1,13 @@
+import sys, subprocess, os, json, time, shutil, re, urllib.request
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from joblib import dump
+from sklearn.preprocessing import LabelEncoder
+
+#sanity checking
+assert 'df' in globals(), "df not found."
+assert 'lgb_model' in globals(), "lgb_model not found."
+assert 'scaler' in globals(), "scaler not found."
+assert 'x_train' in globals(), "x_train not found."
+assert 'path' in globals(), "`path` (folder with UNSW CSVs) not found."
