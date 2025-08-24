@@ -1,0 +1,20 @@
+BUNDLE_PATH = "/content/ids_gui_bundle.joblib"
+bundle = {
+    "model": lgb_model,
+    "scaler": scaler,
+    "feature_order": FEATURE_ORDER,
+    "class_codes": list(lgb_model.classes_),
+    "cat_features": CAT_FEATURES,
+    "cat_choices": {k: list(encoders[k].classes_.astype(str)) for k in CAT_FEATURES},
+    "attack_master_10": attack_master_10,
+    "canonical_by_dirty_idx": canonical_by_dirty_idx
+}
+dump(bundle, BUNDLE_PATH)
+
+
+
+# Saving Stat
+
+STATS_JSON = "/content/feature_stats.json"
+with open(STATS_JSON, "w") as f:
+    json.dump(stats, f)
