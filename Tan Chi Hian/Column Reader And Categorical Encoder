@@ -1,0 +1,15 @@
+def _read_cols(base_dir: Path, want_cols):
+    idx = [UNSW_COLS.index(c) for c in want_cols]
+    parts = []
+    for f in UNSW_FILES:
+        p = base_dir / f
+        if not p.exists(): raise FileNotFoundError(p)
+        parts.append(pd.read_csv(p, header=None, low_memory=False, usecols=idx))
+    df_all = pd.concat(parts, ignore_index=True)
+    df_all.columns = want_cols
+    df_all.replace(r'^\s*$', np.nan, regex=True, inplace=True)
+    return df_all
+
+# Encoder
+df_words = _read_cols(PATH_DIR, ['proto','state','service'])
+encoders = {c: LabelEncoder().fit(df_words[c].astype(str)) for c in ['proto','state','service']}
