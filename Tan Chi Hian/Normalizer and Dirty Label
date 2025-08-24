@@ -15,3 +15,5 @@ df_att_dirty = _read_cols(PATH_DIR, ['attack_cat'])
 df_att_dirty['attack_cat'] = df_att_dirty['attack_cat'].fillna('Normal').astype(str)
 le_dirty = LabelEncoder().fit(df_att_dirty['attack_cat'])
 dirty_classes = list(le_dirty.classes_)
+
+canonical_by_dirty_idx = [normalize_attack_name(x) for x in dirty_classes]
