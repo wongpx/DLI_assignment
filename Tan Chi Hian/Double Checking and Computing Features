@@ -1,0 +1,18 @@
+df_att_clean = _read_cols(PATH_DIR, ['attack_cat'])
+df_att_clean['attack_cat'] = df_att_clean['attack_cat'].fillna('Normal').astype(str).map(normalize_attack_name)
+present = [c for c in CANONICAL_ORDER if c in set(df_att_clean['attack_cat'].unique())]
+if "Normal" not in present: present = ["Normal"] + [c for c in present if c != "Normal"]
+attack_master_10 = present
+
+
+# Computing Features
+
+df_features = df.drop(columns=['attack_cat'], errors='ignore').copy()
+stats = {}
+for col in FEATURE_ORDER:
+    if col in CAT_FEATURES:
+        stats[col] = {"kind":"cat", "choices": list(encoders[col].classes_.astype(str))}
+    else:
+        s = pd.to_numeric(df_features[col], errors="coerce")
+        md = float(np.nanmedian(s)) if np.isfinite(np.nanmedian(s)) else 0.0
+        stats[col] = {"kind":"num", "median": md}
